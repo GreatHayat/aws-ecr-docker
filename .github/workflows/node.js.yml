@@ -1,24 +1,31 @@
-# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
-
-name: Node.js CI
+name: Push Docker image to AWS ECR
 
 on:
   push:
-    branches: [ "master" ]
+    branches:
+      - master
 
 jobs:
-  build:
-    name: Build Image
+  push-to-ecr:
     runs-on: ubuntu-latest
 
     steps:
-    - run: docker build --tag my-image:v1 .
-    - name: Push to ECR
-      id: ecr
-      uses: jwalton/gh-ecr-push@v1
-      with:
-        access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        region: ${{ secrets.AWS_ECR_REGION }}
-        image: my-image:v1
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Login to ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Build and tag Docker image
+      id: build-image
+      run: |
+        docker build -t node-auth-app:${{ github.sha }} .
+        docker tag node-auth-app:${{ github.sha }} node-auth-app:latest
+
+    - name: Push Docker image to ECR
+      id: push-image
+      env:
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        docker push node-auth-app:latest
